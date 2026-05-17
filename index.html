@@ -33,163 +33,87 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-
   <script type="text/babel">
     const { useState, useEffect, useCallback } = React;
 
-  const API_KEY = "sk-ant-api03-...your actual key...";
-
     const MODEL     = "claude-sonnet-4-20250514";
-    const CACHE_KEY = "luma_v9";
+    const CACHE_KEY = "luma_v10";
     const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
 
-    const LOCS = [
-      { id:"cambridge", label:"Cambridge" },
-      { id:"london",    label:"London"    },
-      { id:"daytrips",  label:"Day Trips" },
-    ];
-
-    const VIBES = [
-      { id:"all",       label:"All"     },
-      { id:"culture",   label:"Culture" },
-      { id:"music",     label:"Music"   },
-      { id:"food",      label:"Food"    },
-      { id:"nature",    label:"Nature"  },
-      { id:"nightlife", label:"Nights"  },
-    ];
-
+    const LOCS  = [{ id:"cambridge",label:"Cambridge" },{ id:"london",label:"London" },{ id:"daytrips",label:"Day Trips" }];
+    const VIBES = [{ id:"all",label:"All" },{ id:"culture",label:"Culture" },{ id:"music",label:"Music" },{ id:"food",label:"Food" },{ id:"nature",label:"Nature" },{ id:"nightlife",label:"Nights" }];
     const TIER_CFG = {
-      "unmissable":        { sym:"◉", col:"#8B5E1A" },
-      "hidden gem":        { sym:"◈", col:"#2E6B4F" },
-      "insider":           { sym:"◇", col:"#5A3A6B" },
-      "local institution": { sym:"◆", col:"#1E4A6B" },
-      "rare find":         { sym:"✦", col:"#7A2A5A" },
-      "under-discovered":  { sym:"◌", col:"#4A3E32" },
+      "unmissable":{ sym:"◉", col:"#8B5E1A" },"hidden gem":{ sym:"◈", col:"#2E6B4F" },
+      "insider":{ sym:"◇", col:"#5A3A6B" },"local institution":{ sym:"◆", col:"#1E4A6B" },
+      "rare find":{ sym:"✦", col:"#7A2A5A" },"under-discovered":{ sym:"◌", col:"#4A3E32" },
     };
-
     const AV_COLOR = { available:"#2E6B4F", limited:"#8B5E1A", check:"#1E4A6B" };
 
-    // ── Storage ──────────────────────────────────────────────────────
     const store = {
-      get(k)   { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch { return null; } },
-      set(k,v) { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} },
+      get: k => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch { return null; } },
+      set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} },
     };
 
-    // ── Cache ────────────────────────────────────────────────────────
     function loadCache() {
       const c = store.get(CACHE_KEY);
-      if (!c || !c.data || Date.now() - c.ts > CACHE_TTL) return null;
+      if (!c||!c.data||Date.now()-c.ts>CACHE_TTL) return null;
       return c;
     }
     function saveCache(data) {
-      const c = { ts: Date.now(), next: Date.now() + CACHE_TTL, data };
-      store.set(CACHE_KEY, c);
-      return c;
+      const c = { ts:Date.now(), next:Date.now()+CACHE_TTL, data };
+      store.set(CACHE_KEY,c); return c;
     }
-    const daysLeft = c => c?.next ? Math.max(0, Math.ceil((c.next - Date.now()) / 86400000)) : 0;
-    const fmtTs   = ts => new Date(ts).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+    const daysLeft = c => c?.next ? Math.max(0,Math.ceil((c.next-Date.now())/86400000)) : 0;
+    const fmtTs = ts => new Date(ts).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
 
-    // ── AI fetch ─────────────────────────────────────────────────────
     function buildPrompt(location) {
-      const mo = new Date().toLocaleString("en-GB", { month:"long" });
+      const mo = new Date().toLocaleString("en-GB",{month:"long"});
       const yr = new Date().getFullYear();
-      return `You are Luma's curation engine. Find 6 culturally rich, under-discovered experiences in ${location}.
-
-Today: ${mo} ${yr}. Focus on the next 6-8 weeks.
-
-OPTIMISE FOR: originality, hidden gems, atmosphere, memorability, local cultural relevance.
-AVOID: tourist traps, chains, SEO top-10 content, sold-out events.
-
-Return ONLY a raw JSON array of exactly 6 objects. No markdown. No explanation. No code fences.
-
-Each object must have ALL these fields:
-{
-  "id": "short_unique_id",
-  "title": "string",
-  "type": "string",
-  "tier": "unmissable|hidden gem|insider|local institution|rare find|under-discovered",
-  "dates": "string",
-  "venue": "string",
-  "transport": "string",
-  "price": "string",
-  "availability": "available|limited|check",
-  "availNote": "string",
-  "bookUrl": "string",
-  "why": "2-3 opinionated sentences",
-  "lumaNote": "one insider sentence",
-  "sources": ["string"],
-  "instaTags": ["#tag1","#tag2","#tag3","#tag4"],
-  "instaAccounts": ["@account1","@account2"],
-  "vibeWords": ["word1","word2","word3","word4"],
-  "category": "culture|music|food|nature|nightlife"
-}`;
+      return `You are Luma's curation engine. Find 6 culturally rich, under-discovered experiences in ${location}.\n\nToday: ${mo} ${yr}. Focus on the next 6-8 weeks.\n\nOPTIMISE FOR: originality, hidden gems, atmosphere, memorability, local cultural relevance.\nAVOID: tourist traps, chains, SEO top-10 content, sold-out events.\n\nReturn ONLY a raw JSON array of exactly 6 objects. No markdown. No explanation.\n\nEach object needs: id, title, type, tier (unmissable|hidden gem|insider|local institution|rare find|under-discovered), dates, venue, transport, price, availability (available|limited|check), availNote, bookUrl, why (2-3 sentences), lumaNote, sources (array), instaTags (array of #tags), instaAccounts (array of @handles), vibeWords (array), category (culture|music|food|nature|nightlife)`;
     }
 
-    async function fetchLoc(location) {
-      if (!API_KEY) throw new Error("NO_KEY");
+    async function fetchLoc(location, key) {
       const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type":    "application/json",
-          "x-api-key":       API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01" },
         body: JSON.stringify({
-          model: MODEL,
-          max_tokens: 1000,
-          system: "Return ONLY a valid JSON array. No markdown. No extra text whatsoever.",
-          messages: [{ role:"user", content:buildPrompt(location) }],
+          model:MODEL, max_tokens:1000,
+          system:"Return ONLY a valid JSON array. No markdown. No extra text.",
+          messages:[{ role:"user", content:buildPrompt(location) }],
         }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const j = await r.json();
-      const raw = (j.content||[]).map(b => b.text||"").join("").trim();
+      const raw = (j.content||[]).map(b=>b.text||"").join("").trim();
       const clean = raw.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"").trim();
       return JSON.parse(clean);
     }
 
-    // ── Expandable sub-panel ─────────────────────────────────────────
     function Panel({ label, accentColor, children }) {
-      const [open, setOpen] = useState(false);
-      const bc = accentColor ? "rgba(193,53,132,0.2)" : "rgba(90,78,66,0.13)";
-      const ic = accentColor || "#8B5E1A";
+      const [open,setOpen] = useState(false);
+      const bc = accentColor?"rgba(193,53,132,0.2)":"rgba(90,78,66,0.13)";
+      const ic = accentColor||"#8B5E1A";
       return (
         <div>
-          <button onClick={e => { e.stopPropagation(); setOpen(o => !o); }}
+          <button onClick={e=>{e.stopPropagation();setOpen(o=>!o);}}
             style={{width:"100%",border:`1px solid ${bc}`,background:"rgba(90,78,66,0.03)",borderRadius:6,display:"flex",alignItems:"center",gap:7,padding:"9px 12px",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:"#6A5A48",textAlign:"left"}}>
-            <span style={{color:ic,fontSize:13}}>{accentColor ? "⊹" : "◈"}</span>
+            <span style={{color:ic,fontSize:13}}>{accentColor?"⊹":"◈"}</span>
             <span>{label}</span>
-            <span style={{marginLeft:"auto",opacity:0.35,fontSize:10}}>{open ? "▲" : "▼"}</span>
+            <span style={{marginLeft:"auto",opacity:0.35,fontSize:10}}>{open?"▲":"▼"}</span>
           </button>
-          {open && (
-            <div className="luma-slide"
-              style={{border:`1px solid ${bc}`,borderTop:"none",borderRadius:"0 0 6px 6px",background:accentColor?"rgba(193,53,132,0.025)":"rgba(90,78,66,0.025)",padding:"11px 12px 10px",display:"flex",flexDirection:"column",gap:9}}>
-              {children}
-            </div>
-          )}
+          {open&&<div className="luma-slide" style={{border:`1px solid ${bc}`,borderTop:"none",borderRadius:"0 0 6px 6px",background:accentColor?"rgba(193,53,132,0.025)":"rgba(90,78,66,0.025)",padding:"11px 12px 10px",display:"flex",flexDirection:"column",gap:9}}>{children}</div>}
         </div>
       );
     }
 
     function IGPanel({ item }) {
-      const go = tag => {
-        const q = tag.replace(/^[#@]/,"");
-        window.open(tag.startsWith("@") ? `https://www.instagram.com/${q}/` : `https://www.instagram.com/explore/tags/${q}/`, "_blank");
-      };
+      const go = tag => { const q=tag.replace(/^[#@]/,""); window.open(tag.startsWith("@")?`https://www.instagram.com/${q}/`:`https://www.instagram.com/explore/tags/${q}/`,"_blank"); };
       return (
         <Panel label="Vibe check on Instagram" accentColor="#A0206A">
           <p style={{margin:0,fontSize:11,color:"#7A6A58",fontStyle:"italic",fontFamily:"sans-serif"}}>Tap to open Instagram — see the atmosphere before you go.</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-            {(item.instaTags||[]).map(t => <button key={t} onClick={() => go(t)} style={{border:"1px solid rgba(193,53,132,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#A0206A",background:"transparent",cursor:"pointer"}}>{t}</button>)}
-          </div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-            {(item.instaAccounts||[]).map(a => <button key={a} onClick={() => go(a)} style={{border:"1px solid rgba(184,131,42,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#8B5E18",background:"transparent",cursor:"pointer"}}>{a}</button>)}
-          </div>
-          {(item.vibeWords||[]).length > 0 && (
-            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-              {item.vibeWords.map(v => <span key={v} style={{border:"1px solid rgba(90,78,66,0.18)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#6A5A48"}}>{v}</span>)}
-            </div>
-          )}
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{(item.instaTags||[]).map(t=><button key={t} onClick={()=>go(t)} style={{border:"1px solid rgba(193,53,132,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#A0206A",background:"transparent",cursor:"pointer"}}>{t}</button>)}</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{(item.instaAccounts||[]).map(a=><button key={a} onClick={()=>go(a)} style={{border:"1px solid rgba(184,131,42,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#8B5E18",background:"transparent",cursor:"pointer"}}>{a}</button>)}</div>
+          {(item.vibeWords||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5}}>{item.vibeWords.map(v=><span key={v} style={{border:"1px solid rgba(90,78,66,0.18)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#6A5A48"}}>{v}</span>)}</div>}
         </Panel>
       );
     }
@@ -197,46 +121,23 @@ Each object must have ALL these fields:
     function GlassPanel({ item }) {
       return (
         <Panel label="Why Luma picked this">
-          {item.lumaNote && (
-            <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>INSIDER NOTE</span>
-              <p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.lumaNote}</p>
-            </div>
-          )}
-          <div style={{display:"flex",flexDirection:"column",gap:3}}>
-            <span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>BOOKING</span>
-            <p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.availNote}</p>
-          </div>
-          {(item.sources||[]).length > 0 && (
-            <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>SOURCES</span>
-              <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-                {item.sources.map(s => <span key={s} style={{border:"1px solid rgba(90,78,66,0.15)",borderRadius:3,padding:"2px 6px",fontSize:10,fontFamily:"sans-serif",color:"#7A6A58",background:"rgba(90,78,66,0.04)"}}>{s}</span>)}
-              </div>
-            </div>
-          )}
+          {item.lumaNote&&<div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>INSIDER NOTE</span><p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.lumaNote}</p></div>}
+          <div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>BOOKING</span><p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.availNote}</p></div>
+          {(item.sources||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>SOURCES</span><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{item.sources.map(s=><span key={s} style={{border:"1px solid rgba(90,78,66,0.15)",borderRadius:3,padding:"2px 6px",fontSize:10,fontFamily:"sans-serif",color:"#7A6A58",background:"rgba(90,78,66,0.04)"}}>{s}</span>)}</div></div>}
         </Panel>
       );
     }
 
-    // ── Card ─────────────────────────────────────────────────────────
     function Card({ item, saved, onSave, delay }) {
-      const [open, setOpen] = useState(false);
-      const tier = TIER_CFG[item.tier] || TIER_CFG["under-discovered"];
-      const avc  = AV_COLOR[item.availability] || AV_COLOR.check;
+      const [open,setOpen] = useState(false);
+      const tier = TIER_CFG[item.tier]||TIER_CFG["under-discovered"];
+      const avc  = AV_COLOR[item.availability]||AV_COLOR.check;
       return (
-        <div className="luma-card"
-          style={{animationDelay:`${delay}ms`,padding:"15px 16px 8px",borderBottom:"1px solid rgba(90,78,66,0.12)",background:"#F4EFE6",cursor:"pointer"}}
-          onClick={() => setOpen(o => !o)}>
-
+        <div className="luma-card" style={{animationDelay:`${delay}ms`,padding:"15px 16px 8px",borderBottom:"1px solid rgba(90,78,66,0.12)",background:"#F4EFE6",cursor:"pointer"}} onClick={()=>setOpen(o=>!o)}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
             <span style={{fontSize:10.5,fontFamily:"sans-serif",fontWeight:600,letterSpacing:"0.05em",color:tier.col}}>{tier.sym} {item.tier}</span>
-            <button style={{background:"none",border:"none",fontSize:19,cursor:"pointer",color:saved?"#B8832A":"#C4AD94",lineHeight:1,padding:"2px 4px"}}
-              onClick={e => { e.stopPropagation(); onSave(item); }}>
-              {saved ? "◆" : "◇"}
-            </button>
+            <button style={{background:"none",border:"none",fontSize:19,cursor:"pointer",color:saved?"#B8832A":"#C4AD94",lineHeight:1,padding:"2px 4px"}} onClick={e=>{e.stopPropagation();onSave(item);}}>{saved?"◆":"◇"}</button>
           </div>
-
           <h3 style={{margin:"0 0 2px",fontSize:17,fontWeight:400,lineHeight:1.25,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>{item.title}</h3>
           <p style={{margin:"0 0 9px",fontSize:10.5,color:"#7A6A58",fontFamily:"sans-serif",letterSpacing:"0.05em",textTransform:"uppercase"}}>{item.type}</p>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -244,13 +145,10 @@ Each object must have ALL these fields:
             <span style={{fontSize:11,color:"#7A6A58",fontFamily:"sans-serif"}}>{item.availability}</span>
             <span style={{fontSize:11.5,color:"#5A4A38",fontFamily:"sans-serif",marginLeft:"auto"}}>{item.price}</span>
           </div>
-
-          {open && (
-            <div className="luma-slide"
-              style={{marginTop:13,paddingTop:13,borderTop:"1px solid rgba(90,78,66,0.1)"}}
-              onClick={e => e.stopPropagation()}>
+          {open&&(
+            <div className="luma-slide" style={{marginTop:13,paddingTop:13,borderTop:"1px solid rgba(90,78,66,0.1)"}} onClick={e=>e.stopPropagation()}>
               <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
-                {[["📅",item.dates],["📍",item.venue],["🚇",item.transport]].map(([ic,tx]) => (
+                {[["📅",item.dates],["📍",item.venue],["🚇",item.transport]].map(([ic,tx])=>(
                   <div key={ic} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                     <span style={{fontSize:11,flexShrink:0,marginTop:1}}>{ic}</span>
                     <span style={{fontSize:12,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.5}}>{tx}</span>
@@ -260,21 +158,18 @@ Each object must have ALL these fields:
               <p style={{margin:"0 0 14px",fontSize:14,lineHeight:1.75,color:"#3A2E22",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>{item.why}</p>
               <a href={item.bookUrl} target="_blank" rel="noopener noreferrer"
                 style={{display:"block",textAlign:"center",background:"#1C1610",color:"#F4EFE6",borderRadius:8,padding:"12px 0",fontSize:13,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",textDecoration:"none",marginBottom:4}}
-                onClick={e => e.stopPropagation()}>
-                Book / check tickets →
-              </a>
+                onClick={e=>e.stopPropagation()}>Book / check tickets →</a>
               <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:14}}>
                 <GlassPanel item={item}/>
                 <IGPanel item={item}/>
               </div>
             </div>
           )}
-          <p style={{textAlign:"right",fontSize:9.5,color:"#C4AD94",margin:"7px 0 0",fontFamily:"sans-serif",letterSpacing:"0.04em"}}>{open ? "▲ close" : "▼ details + booking"}</p>
+          <p style={{textAlign:"right",fontSize:9.5,color:"#C4AD94",margin:"7px 0 0",fontFamily:"sans-serif",letterSpacing:"0.04em"}}>{open?"▲ close":"▼ details + booking"}</p>
         </div>
       );
     }
 
-    // ── Skeleton ─────────────────────────────────────────────────────
     function Skeleton({ delay }) {
       return (
         <div className="luma-pulse" style={{padding:"18px 16px",borderBottom:"1px solid rgba(90,78,66,0.12)",animationDelay:`${delay}ms`}}>
@@ -286,270 +181,159 @@ Each object must have ALL these fields:
       );
     }
 
-    // ── Feed screen ───────────────────────────────────────────────────
-    function Feed({ cache, loading, error, noKey, saved, onSave }) {
-      const [loc,  setLoc]  = useState("cambridge");
-      const [vibe, setVibe] = useState("all");
-      const items    = cache?.data?.[loc] || [];
-      const filtered = vibe === "all" ? items : items.filter(it => it.category === vibe);
+    function KeyEntry({ onSave }) {
+      const [val, setVal] = useState("");
+      return (
+        <div style={{margin:16,padding:20,borderRadius:12,background:"#FFFCF7",border:"1px solid rgba(184,131,42,0.25)"}}>
+          <p style={{margin:"0 0 6px",fontSize:16,fontWeight:400,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>Enter your API key</p>
+          <p style={{margin:"0 0 14px",fontSize:12.5,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.6}}>Your key is saved only in this browser — it never leaves your device.</p>
+          <input
+            type="password"
+            placeholder="paste your key here"
+            value={val}
+            onChange={e=>setVal(e.target.value)}
+            onKeyDown={e=>e.key==="Enter"&&onSave(val.trim())}
+            style={{width:"100%",padding:"11px 13px",borderRadius:8,border:"1px solid rgba(184,131,42,0.3)",background:"#F4EFE6",fontFamily:"sans-serif",fontSize:13,color:"#1C1610",marginBottom:10,outline:"none",WebkitAppearance:"none"}}
+          />
+          <button onClick={()=>onSave(val.trim())} disabled={!val.trim()}
+            style={{width:"100%",background:"#1C1610",color:"#F4EFE6",border:"none",borderRadius:8,padding:"12px 0",fontSize:13,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",opacity:val.trim()?1:0.4}}>
+            Save &amp; load picks →
+          </button>
+        </div>
+      );
+    }
 
+    function Feed({ cache, loading, error, apiKey, onSaveKey, saved, onSave }) {
+      const [loc,setLoc]   = useState("cambridge");
+      const [vibe,setVibe] = useState("all");
+      const items    = cache?.data?.[loc]||[];
+      const filtered = vibe==="all"?items:items.filter(it=>it.category===vibe);
       return (
         <div style={{display:"flex",flexDirection:"column"}}>
           <div style={{display:"flex",overflowX:"auto",borderBottom:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6",position:"sticky",top:0,zIndex:8}}>
-            {LOCS.map(l => (
-              <button key={l.id} onClick={() => setLoc(l.id)}
-                style={{flex:"0 0 auto",padding:"11px 22px",fontSize:12.5,fontFamily:"sans-serif",letterSpacing:"0.05em",border:"none",background:"transparent",cursor:"pointer",whiteSpace:"nowrap",borderBottom:loc===l.id?"2px solid #B8832A":"2px solid transparent",color:loc===l.id?"#1C1610":"#7A6A58",fontWeight:loc===l.id?700:400}}>
-                {l.label}
-              </button>
-            ))}
+            {LOCS.map(l=><button key={l.id} onClick={()=>setLoc(l.id)} style={{flex:"0 0 auto",padding:"11px 22px",fontSize:12.5,fontFamily:"sans-serif",letterSpacing:"0.05em",border:"none",background:"transparent",cursor:"pointer",whiteSpace:"nowrap",borderBottom:loc===l.id?"2px solid #B8832A":"2px solid transparent",color:loc===l.id?"#1C1610":"#7A6A58",fontWeight:loc===l.id?700:400}}>{l.label}</button>)}
           </div>
-
           <div style={{display:"flex",gap:6,padding:"10px 14px",overflowX:"auto",borderBottom:"1px solid rgba(90,78,66,0.07)"}}>
-            {VIBES.map(v => (
-              <button key={v.id} onClick={() => setVibe(v.id)}
-                style={{flex:"0 0 auto",padding:"5px 13px",borderRadius:20,border:"1px solid rgba(90,78,66,0.18)",background:vibe===v.id?"#1C1610":"transparent",color:vibe===v.id?"#F4EFE6":"#7A6A58",fontSize:12,fontFamily:"sans-serif",cursor:"pointer",whiteSpace:"nowrap"}}>
-                {v.label}
-              </button>
-            ))}
+            {VIBES.map(v=><button key={v.id} onClick={()=>setVibe(v.id)} style={{flex:"0 0 auto",padding:"5px 13px",borderRadius:20,border:"1px solid rgba(90,78,66,0.18)",background:vibe===v.id?"#1C1610":"transparent",color:vibe===v.id?"#F4EFE6":"#7A6A58",fontSize:12,fontFamily:"sans-serif",cursor:"pointer",whiteSpace:"nowrap"}}>{v.label}</button>)}
           </div>
-
-          {cache?.ts && !loading && (
-            <div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 16px",background:"rgba(184,131,42,0.05)",borderBottom:"1px solid rgba(184,131,42,0.1)"}}>
-              <span style={{color:"#B8832A",fontSize:11}}>◈</span>
-              <span style={{fontSize:11,color:"#8C6A2A",fontFamily:"sans-serif"}}>Curated {fmtTs(cache.ts)} · refreshes in {daysLeft(cache)}d</span>
-            </div>
-          )}
-
-          {loading && [0,1,2,3].map(i => <Skeleton key={i} delay={i*100}/>)}
-
-          {noKey && !loading && (
-            <div style={{margin:16,padding:16,borderRadius:10,background:"rgba(139,94,30,0.07)",border:"1px solid rgba(184,131,42,0.25)"}}>
-              <p style={{margin:"0 0 8px",fontSize:14,color:"#6B4A10",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif",fontWeight:400}}>API key needed</p>
-              <p style={{margin:0,fontSize:12.5,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.6}}>
-                To load live picks, open <strong>index.html</strong> in a text editor, find the line <code style={{background:"rgba(0,0,0,0.06)",padding:"1px 4px",borderRadius:3}}>const API_KEY = ""</code>, and add your key from <strong>console.anthropic.com</strong>. Then re-upload to Tiiny Host.
-              </p>
-            </div>
-          )}
-
-          {error && !loading && !noKey && (
-            <div style={{margin:16,padding:16,borderRadius:8,background:"rgba(139,30,30,0.05)",border:"1px solid rgba(139,30,30,0.14)"}}>
-              <p style={{margin:0,fontSize:13,color:"#7A2A2A",fontFamily:"sans-serif",lineHeight:1.6}}>Couldn't load picks — check your connection, then tap Refresh.</p>
-            </div>
-          )}
-
-          {!loading && !error && !noKey && filtered.map((item, i) => (
-            <Card key={item.id} item={item} saved={saved.some(s => s.id === item.id)} onSave={onSave} delay={i*55}/>
-          ))}
-
-          {!loading && !error && !noKey && items.length > 0 && filtered.length === 0 && (
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}>
-              <p style={{fontSize:34,color:"#C4AD94",margin:0}}>◌</p>
-              <p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing in that filter</p>
-              <p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Try "All" or switch location.</p>
-            </div>
-          )}
-
-          {!loading && !noKey && !error && !cache && (
-            <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}>
-              <p style={{fontSize:34,color:"#C4AD94",margin:0}}>↻</p>
-              <p style={{fontSize:16,color:"#5A4A38",margin:0}}>No picks yet</p>
-              <p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap Refresh to load your first curation.</p>
-            </div>
-          )}
+          {cache?.ts&&!loading&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 16px",background:"rgba(184,131,42,0.05)",borderBottom:"1px solid rgba(184,131,42,0.1)"}}><span style={{color:"#B8832A",fontSize:11}}>◈</span><span style={{fontSize:11,color:"#8C6A2A",fontFamily:"sans-serif"}}>Curated {fmtTs(cache.ts)} · refreshes in {daysLeft(cache)}d</span></div>}
+          {!apiKey&&!loading&&<KeyEntry onSave={onSaveKey}/>}
+          {loading&&[0,1,2,3].map(i=><Skeleton key={i} delay={i*100}/>)}
+          {error&&!loading&&<div style={{margin:16,padding:16,borderRadius:8,background:"rgba(139,30,30,0.05)",border:"1px solid rgba(139,30,30,0.14)"}}><p style={{margin:0,fontSize:13,color:"#7A2A2A",fontFamily:"sans-serif",lineHeight:1.6}}>Couldn't load picks — tap Refresh to try again.</p></div>}
+          {!loading&&!error&&apiKey&&filtered.map((item,i)=><Card key={item.id} item={item} saved={saved.some(s=>s.id===item.id)} onSave={onSave} delay={i*55}/>)}
+          {!loading&&!error&&apiKey&&items.length>0&&filtered.length===0&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>◌</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing in that filter</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Try "All" or switch location.</p></div>}
+          {!loading&&!error&&apiKey&&!cache&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>↻</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>No picks yet</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap Refresh to load your first curation.</p></div>}
         </div>
       );
     }
 
-    // ── Saved screen ──────────────────────────────────────────────────
     function Saved({ saved, onSave }) {
-      if (!saved.length) return (
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}>
-          <p style={{fontSize:34,color:"#C4AD94",margin:0}}>◇</p>
-          <p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing saved</p>
-          <p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap ◇ on any pick to save it here.</p>
-        </div>
-      );
-      return (
-        <div style={{display:"flex",flexDirection:"column"}}>
-          {saved.map((item, i) => <Card key={item.id} item={item} saved onSave={onSave} delay={i*50}/>)}
-        </div>
-      );
+      if (!saved.length) return <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>◇</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing saved</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap ◇ on any pick to save it here.</p></div>;
+      return <div style={{display:"flex",flexDirection:"column"}}>{saved.map((item,i)=><Card key={item.id} item={item} saved onSave={onSave} delay={i*50}/>)}</div>;
     }
 
-    // ── Refresh screen ────────────────────────────────────────────────
-    function Refresh({ cache, onRefresh, loading, noKey }) {
-      const total = Object.values(cache?.data||{}).reduce((n,a) => n+(Array.isArray(a)?a.length:0), 0);
+    function Refresh({ cache, onRefresh, loading }) {
+      const total = Object.values(cache?.data||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
       return (
         <div style={{padding:"16px 16px 48px",display:"flex",flexDirection:"column",gap:12}}>
-
-          {noKey && (
-            <div style={{background:"rgba(139,94,30,0.07)",border:"1px solid rgba(184,131,42,0.3)",borderRadius:12,padding:20,display:"flex",flexDirection:"column",gap:10}}>
-              <p style={{margin:0,fontSize:18,fontWeight:400,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>One step needed</p>
-              <p style={{margin:0,fontSize:13,lineHeight:1.7,color:"#5A4A38",fontFamily:"sans-serif"}}>To activate Luma's live curation, you need a free Anthropic API key.</p>
-              <div style={{display:"flex",flexDirection:"column",gap:8,background:"rgba(0,0,0,0.04)",borderRadius:8,padding:"12px 14px"}}>
-                {[
-                  ["1","Go to console.anthropic.com and sign up free"],
-                  ["2","Create an API key — copy it"],
-                  ["3","Open index.html in any text editor (Notepad, TextEdit)"],
-                  ["4",'Find: const API_KEY = ""'],
-                  ["5",'Change to: const API_KEY = "sk-ant-..."'],
-                  ["6","Save the file, re-upload to Tiiny Host"],
-                ].map(([n,s]) => (
-                  <div key={n} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                    <span style={{background:"#B8832A",color:"#F4EFE6",borderRadius:"50%",width:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontFamily:"sans-serif",fontWeight:700,flexShrink:0,marginTop:1}}>{n}</span>
-                    <span style={{fontSize:12.5,color:"#5A4A38",fontFamily:"sans-serif",lineHeight:1.5}}>{s}</span>
-                  </div>
-                ))}
-              </div>
-              <a href="https://console.anthropic.com" target="_blank"
-                style={{display:"block",textAlign:"center",background:"#1C1610",color:"#F4EFE6",borderRadius:8,padding:"12px 0",fontSize:13,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",textDecoration:"none"}}>
-                Get API key →
-              </a>
-            </div>
-          )}
-
           <div style={{background:"#FFFCF7",border:"1px solid rgba(90,78,66,0.12)",borderRadius:12,padding:20,display:"flex",flexDirection:"column",gap:12}}>
             <p style={{fontSize:26,margin:0}}>↻</p>
             <h2 style={{margin:0,fontSize:18,fontWeight:400,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>Curation Engine</h2>
-            <p style={{margin:0,fontSize:13,lineHeight:1.7,color:"#5A4A38",fontFamily:"sans-serif"}}>
-              Luma searches independently across arts venues, supper clubs, music nights, nature spots and cultural spaces — then caches results for 7 days.
-            </p>
-
-            {cache?.ts && (
-              <div style={{background:"rgba(184,131,42,0.06)",borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>
-                {[["Last curated",fmtTs(cache.ts)],["Next refresh",`in ${daysLeft(cache)} days`],["Picks cached",`${total} across 3 locations`]].map(([k,v]) => (
-                  <div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                    <span style={{fontSize:11,color:"#7A6A58",fontFamily:"sans-serif"}}>{k}</span>
-                    <span style={{fontSize:12,color:"#3A2E22",fontFamily:"sans-serif",fontWeight:700}}>{v}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <button onClick={onRefresh} disabled={loading || noKey}
-              style={{background:"#1C1610",color:"#F4EFE6",border:"none",borderRadius:8,padding:"13px 0",width:"100%",fontSize:14,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",cursor:noKey?"not-allowed":"pointer",opacity:(loading||noKey)?0.4:1}}>
-              {loading ? "Searching — ~30 seconds…" : noKey ? "Add API key to enable" : "Refresh now →"}
-            </button>
-
-            <p style={{margin:0,fontSize:11.5,color:"#8C7B68",fontStyle:"italic",fontFamily:"sans-serif",textAlign:"center",lineHeight:1.6}}>
-              Searches Cambridge, London and Day Trips simultaneously.
-            </p>
+            <p style={{margin:0,fontSize:13,lineHeight:1.7,color:"#5A4A38",fontFamily:"sans-serif"}}>Luma searches across independent venues, supper clubs, music nights, nature spots and cultural spaces. Results cache for 7 days.</p>
+            {cache?.ts&&<div style={{background:"rgba(184,131,42,0.06)",borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>{[["Last curated",fmtTs(cache.ts)],["Next refresh",`in ${daysLeft(cache)} days`],["Picks cached",`${total} across 3 locations`]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,color:"#7A6A58",fontFamily:"sans-serif"}}>{k}</span><span style={{fontSize:12,color:"#3A2E22",fontFamily:"sans-serif",fontWeight:700}}>{v}</span></div>)}</div>}
+            <button onClick={onRefresh} disabled={loading} style={{background:"#1C1610",color:"#F4EFE6",border:"none",borderRadius:8,padding:"13px 0",width:"100%",fontSize:14,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",opacity:loading?0.45:1}}>{loading?"Searching — ~30 seconds…":"Refresh now →"}</button>
           </div>
-
           <div style={{background:"#FFFCF7",border:"1px solid rgba(90,78,66,0.12)",borderRadius:12,padding:20,display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{margin:0,fontSize:10.5,letterSpacing:"0.1em",textTransform:"uppercase",color:"#8C7B68",fontFamily:"sans-serif"}}>How curation works</p>
-            {[
-              ["◉","Originality","Skips anything ranking in a Google top-5 result."],
-              ["◈","Atmosphere","The space matters as much as the event itself."],
-              ["◇","Availability","Sold-out events are excluded, not flagged."],
-              ["◌","Freshness","Focused on the next 6–8 weeks specifically."],
-              ["✦","Transparency","Every card shows sources and booking notes."],
-            ].map(([g,h,b]) => (
-              <div key={h} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                <span style={{color:"#B8832A",fontSize:14,flexShrink:0,marginTop:1}}>{g}</span>
-                <div>
-                  <p style={{margin:0,fontSize:12,fontWeight:700,color:"#3A2E22",fontFamily:"sans-serif"}}>{h}</p>
-                  <p style={{margin:0,fontSize:12,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.5}}>{b}</p>
-                </div>
-              </div>
-            ))}
+            <p style={{margin:0,fontSize:10.5,letterSpacing:"0.1em",textTransform:"uppercase",color:"#8C7B68",fontFamily:"sans-serif"}}>How it works</p>
+            {[["◉","Originality","Skips anything in Google's top 5."],["◈","Atmosphere","The space matters as much as the event."],["◇","Availability","Sold-out events excluded, not shown."],["◌","Freshness","Focused on the next 6-8 weeks."],["✦","Transparency","Every card shows sources and booking notes."]].map(([g,h,b])=><div key={h} style={{display:"flex",gap:10,alignItems:"flex-start"}}><span style={{color:"#B8832A",fontSize:14,flexShrink:0,marginTop:1}}>{g}</span><div><p style={{margin:0,fontSize:12,fontWeight:700,color:"#3A2E22",fontFamily:"sans-serif"}}>{h}</p><p style={{margin:0,fontSize:12,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.5}}>{b}</p></div></div>)}
           </div>
         </div>
       );
     }
 
-    // ── App root ──────────────────────────────────────────────────────
     function App() {
-      const [tab,     setTab]     = useState("feed");
-      const [cache,   setCache]   = useState(null);
-      const [loading, setLoading] = useState(false);
-      const [error,   setError]   = useState(false);
-      const [noKey,   setNoKey]   = useState(false);
-      const [saved,   setSaved]   = useState([]);
+      const [tab,     setTab]    = useState("feed");
+      const [cache,   setCache]  = useState(null);
+      const [loading, setLoading]= useState(false);
+      const [error,   setError]  = useState(false);
+      const [saved,   setSaved]  = useState([]);
+      const [apiKey,  setApiKey] = useState(() => store.get("luma_api_key")||"");
 
-      const runRefresh = useCallback(async () => {
-        if (!API_KEY) { setNoKey(true); return; }
-        setNoKey(false);
-        setLoading(true);
-        setError(false);
+      const doRefresh = useCallback(async (key) => {
+        const k = key || store.get("luma_api_key") || "";
+        if (!k) return;
+        setLoading(true); setError(false);
         try {
           const [cambridge, london, daytrips] = await Promise.all([
-            fetchLoc("Cambridge UK — independent arts, hidden music venues, supper clubs, nature walks"),
-            fetchLoc("London UK — underground clubs, independent galleries, supper clubs, hidden gems, emerging venues"),
-            fetchLoc("day trips 60-90 min from Cambridge UK: Ely, Norfolk Broads, Suffolk coast, Wimpole Hall, Wicken Fen, Stamford"),
+            fetchLoc("Cambridge UK — independent arts, hidden music venues, supper clubs, nature walks", k),
+            fetchLoc("London UK — underground clubs, independent galleries, supper clubs, hidden gems", k),
+            fetchLoc("day trips 60-90 min from Cambridge UK: Ely, Norfolk coast, Suffolk, Wimpole, Wicken Fen", k),
           ]);
           setCache(saveCache({ cambridge, london, daytrips }));
         } catch(err) {
-          console.error("Luma error:", err);
-          setError(true);
+          console.error(err); setError(true);
         } finally {
           setLoading(false);
         }
       }, []);
 
-      useEffect(() => {
-        const s = store.get("luma_saved");
-        if (s) setSaved(s);
-        if (!API_KEY) { setNoKey(true); return; }
+      const handleSaveKey = useCallback((k) => {
+        if (!k) return;
+        store.set("luma_api_key", k);
+        setApiKey(k);
         const c = loadCache();
         if (c) setCache(c);
-        else runRefresh();
-      }, [runRefresh]);
+        else doRefresh(k);
+      }, [doRefresh]);
+
+      useEffect(() => {
+        const s = store.get("luma_saved"); if (s) setSaved(s);
+        const k = store.get("luma_api_key") || "";
+        if (k) { setApiKey(k); const c=loadCache(); if(c) setCache(c); else doRefresh(k); }
+      }, [doRefresh]);
 
       useEffect(() => { store.set("luma_saved", saved); }, [saved]);
 
       const toggleSave = useCallback(item => {
-        setSaved(prev => prev.some(s => s.id === item.id) ? prev.filter(s => s.id !== item.id) : [...prev, item]);
+        setSaved(prev => prev.some(s=>s.id===item.id) ? prev.filter(s=>s.id!==item.id) : [...prev,item]);
       }, []);
 
-      const now = new Date().toLocaleTimeString("en-GB", { hour:"2-digit", minute:"2-digit" });
+      const now = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
 
       return (
         <div id="luma-shell" style={{width:"100%",maxWidth:430,margin:"0 auto",height:"100dvh",minHeight:"100dvh",display:"flex",flexDirection:"column",background:"#F4EFE6",fontFamily:"'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif",color:"#1C1610",overflow:"hidden"}}>
-
           <div style={{height:44,flexShrink:0,padding:"10px 20px 0",display:"flex",justifyContent:"flex-end",background:"#F4EFE6"}}>
             <span style={{fontSize:13,fontWeight:600,fontFamily:"sans-serif"}}>{now}</span>
           </div>
-
           <header style={{height:50,flexShrink:0,padding:"0 18px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6"}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="9.5" stroke="#B8832A" strokeWidth="1.3"/>
                 <circle cx="12" cy="12" r="3.5" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="12" y1="2.5" x2="12" y2="8"    stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="12" y1="16"  x2="12" y2="21.5" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="2.5" y1="12" x2="8"   y2="12"  stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="16"  y1="12" x2="21.5" y2="12" stroke="#B8832A" strokeWidth="1.3"/>
+                <line x1="12" y1="2.5" x2="12" y2="8" stroke="#B8832A" strokeWidth="1.3"/>
+                <line x1="12" y1="16" x2="12" y2="21.5" stroke="#B8832A" strokeWidth="1.3"/>
+                <line x1="2.5" y1="12" x2="8" y2="12" stroke="#B8832A" strokeWidth="1.3"/>
+                <line x1="16" y1="12" x2="21.5" y2="12" stroke="#B8832A" strokeWidth="1.3"/>
               </svg>
               <span style={{fontSize:21,letterSpacing:"0.13em",lineHeight:1}}>luma</span>
             </div>
             <span style={{fontSize:10,color:"#7A6A58",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"sans-serif"}}>cultural intelligence</span>
           </header>
-
           <main style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
-            {tab === "feed"    && <Feed    cache={cache} loading={loading} error={error} noKey={noKey} saved={saved} onSave={toggleSave}/>}
-            {tab === "saved"   && <Saved   saved={saved} onSave={toggleSave}/>}
-            {tab === "refresh" && <Refresh cache={cache} onRefresh={runRefresh} loading={loading} noKey={noKey}/>}
+            {tab==="feed"    && <Feed    cache={cache} loading={loading} error={error} apiKey={apiKey} onSaveKey={handleSaveKey} saved={saved} onSave={toggleSave}/>}
+            {tab==="saved"   && <Saved   saved={saved} onSave={toggleSave}/>}
+            {tab==="refresh" && <Refresh cache={cache} onRefresh={()=>doRefresh()} loading={loading}/>}
           </main>
-
           <nav style={{height:54,flexShrink:0,borderTop:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6",display:"flex",alignItems:"stretch"}}>
-            {[
-              { id:"feed",    icon:"◎", label:"Feed"    },
-              { id:"saved",   icon:"◇", label:"Saved",  badge:saved.length },
-              { id:"refresh", icon:"↻", label:"Refresh" },
-            ].map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{flex:1,border:"none",background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,cursor:"pointer",padding:0}}>
+            {[{id:"feed",icon:"◎",label:"Feed"},{id:"saved",icon:"◇",label:"Saved",badge:saved.length},{id:"refresh",icon:"↻",label:"Refresh"}].map(t=>(
+              <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,border:"none",background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,cursor:"pointer",padding:0}}>
                 <span style={{fontSize:18,lineHeight:1,color:tab===t.id?"#B8832A":"#A09080"}}>
-                  {t.badge > 0 && tab !== t.id
-                    ? <span style={{background:"#B8832A",color:"#F4EFE6",borderRadius:"50%",width:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontFamily:"sans-serif",fontWeight:700}}>{t.badge}</span>
-                    : t.icon}
+                  {t.badge>0&&tab!==t.id?<span style={{background:"#B8832A",color:"#F4EFE6",borderRadius:"50%",width:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontFamily:"sans-serif",fontWeight:700}}>{t.badge}</span>:t.icon}
                 </span>
                 <span style={{fontSize:9.5,fontFamily:"sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",color:tab===t.id?"#B8832A":"#A09080"}}>{t.label}</span>
               </button>
             ))}
           </nav>
-
           <div style={{height:20,flexShrink:0,background:"#F4EFE6"}}/>
         </div>
       );
