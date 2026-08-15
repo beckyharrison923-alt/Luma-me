@@ -1,345 +1,518 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#F4EFE6" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Luma" />
-  <title>Luma — cultural intelligence</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #F4EFE6; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
-    #root { height: 100%; }
-    ::-webkit-scrollbar { display: none; }
-    * { scrollbar-width: none; -webkit-tap-highlight-color: rgba(184,131,42,0.07); }
-    .luma-card { animation: lumaCardIn 0.28s ease both; }
-    @keyframes lumaCardIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-    .luma-slide { animation: lumaSlide 0.17s ease both; }
-    @keyframes lumaSlide { from { opacity:0; transform:translateY(-3px); } to { opacity:1; transform:translateY(0); } }
-    .luma-pulse { animation: lumaPulse 1.5s ease-in-out infinite; }
-    @keyframes lumaPulse { 0%,100% { opacity:0.4; } 50% { opacity:1; } }
-    button:active { opacity: 0.6 !important; }
-    a:active { opacity: 0.6 !important; }
-    @media (min-width: 500px) {
-      body { background: #1A1612 !important; display: flex !important; align-items: flex-start !important; justify-content: center !important; min-height: 100vh !important; padding: 36px 0 48px !important; }
-      #luma-shell { height: 812px !important; max-height: 812px !important; border-radius: 48px !important; overflow: hidden !important; box-shadow: 0 0 0 9px #111, 0 0 0 11px #222, 0 50px 100px rgba(0,0,0,0.65) !important; }
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#1B4332" />
+<meta name="description" content="Every golf course in the UK, pulled from OpenStreetMap — search, filter and find your nearest course." />
+<title>UK Golf Courses — Find Every Course</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9B%B3%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+<style>
+  :root{
+    --green-900:#0F2E22; --green-800:#1B4332; --green-700:#2D6A4F; --green-500:#40916C;
+    --green-300:#95D5B2; --green-100:#E9F5EE; --cream:#F7F5EF; --ink:#1C2420; --muted:#5C6B63;
+    --line:#DCE4DE; --card:#FFFFFF; --accent:#B8862E;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--cream); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  a{color:var(--green-700);}
+  button{font:inherit;}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:#C9D3CC;border-radius:4px;}
+
+  header{
+    flex-shrink:0; background:var(--green-800); color:#fff;
+    padding:12px 16px; display:flex; flex-direction:column; gap:10px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.12); z-index:20; position:relative;
+  }
+  .top-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:center; gap:9px; flex-shrink:0;}
+  .brand .flag{font-size:22px; line-height:1;}
+  .brand h1{font-size:17px; font-weight:700; letter-spacing:0.01em;}
+  .brand p{font-size:11px; color:var(--green-300); font-weight:500;}
+  .search-wrap{flex:1 1 260px; position:relative; min-width:180px;}
+  .search-wrap input{
+    width:100%; padding:9px 14px 9px 34px; border-radius:8px; border:1px solid transparent;
+    background:rgba(255,255,255,0.12); color:#fff; font-size:13.5px; outline:none;
+  }
+  .search-wrap input::placeholder{color:rgba(255,255,255,0.55);}
+  .search-wrap input:focus{background:#fff; color:var(--ink); border-color:var(--green-300);}
+  .search-wrap input:focus::placeholder{color:var(--muted);}
+  .search-wrap .icon{position:absolute; left:11px; top:50%; transform:translateY(-50%); font-size:13px; opacity:0.7; pointer-events:none;}
+  .btn{
+    border:1px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.08); color:#fff;
+    padding:9px 14px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;
+    white-space:nowrap; display:flex; align-items:center; gap:6px; transition:background .15s;
+  }
+  .btn:hover{background:rgba(255,255,255,0.18);}
+  .btn:disabled{opacity:0.5; cursor:default;}
+  .btn.solid{background:var(--accent); border-color:var(--accent);}
+  .btn.solid:hover{background:#A6761F;}
+
+  .filter-row{display:flex; align-items:center; gap:7px; flex-wrap:wrap;}
+  .chip{
+    border:1px solid rgba(255,255,255,0.28); background:transparent; color:rgba(255,255,255,0.85);
+    padding:5px 12px; border-radius:20px; font-size:12px; font-weight:600; cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{background:var(--green-300); color:var(--green-900); border-color:var(--green-300);}
+  .status-text{font-size:11.5px; color:var(--green-300); margin-left:auto; white-space:nowrap;}
+
+  .view-toggle{display:none; gap:6px;}
+  .view-toggle .chip{flex:1; text-align:center;}
+
+  main{flex:1; display:grid; grid-template-columns:400px 1fr; min-height:0;}
+  #list-pane{display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); background:var(--cream);}
+  #map-pane{position:relative; min-height:0;}
+  #map{width:100%; height:100%;}
+
+  #list-scroll{flex:1; overflow-y:auto; padding:8px;}
+  .course-card{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:12px 13px; margin-bottom:8px; cursor:pointer; transition:border-color .12s, box-shadow .12s;
+  }
+  .course-card:hover{border-color:var(--green-500); box-shadow:0 2px 10px rgba(27,67,50,0.08);}
+  .course-card.selected{border-color:var(--green-700); box-shadow:0 0 0 2px var(--green-300) inset;}
+  .course-card h3{font-size:14px; font-weight:700; color:var(--green-900); margin-bottom:3px; line-height:1.3;}
+  .course-meta{display:flex; flex-wrap:wrap; gap:6px 10px; font-size:11.5px; color:var(--muted);}
+  .course-meta span{display:flex; align-items:center; gap:3px;}
+  .course-links{display:flex; gap:12px; margin-top:7px;}
+  .course-links a{font-size:11.5px; font-weight:600; text-decoration:none;}
+
+  .empty-state, .load-state{display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; padding:48px 24px; color:var(--muted); flex:1;}
+  .empty-state .glyph, .load-state .glyph{font-size:36px;}
+  .empty-state h3, .load-state h3{font-size:15px; color:var(--ink); font-weight:700;}
+  .empty-state p, .load-state p{font-size:12.5px; max-width:280px; line-height:1.6;}
+  .spinner{width:26px; height:26px; border:3px solid var(--line); border-top-color:var(--green-700); border-radius:50%; animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .load-more-wrap{padding:6px 4px 4px;}
+  .load-more-wrap button{width:100%; padding:10px; border-radius:8px; border:1px dashed var(--green-500); background:var(--green-100); color:var(--green-800); font-weight:700; font-size:12.5px; cursor:pointer;}
+
+  #attribution-bar{
+    flex-shrink:0; font-size:10.5px; color:var(--muted); padding:6px 10px; background:var(--cream);
+    border-top:1px solid var(--line); display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  }
+  #attribution-bar a{color:var(--muted); text-decoration:underline;}
+
+  .leaflet-popup-content{font-family:inherit; font-size:12.5px; line-height:1.55; min-width:170px;}
+  .leaflet-popup-content h4{font-size:13.5px; color:var(--green-900); margin-bottom:3px;}
+  .leaflet-popup-content .pmeta{color:var(--muted); margin-bottom:4px;}
+  .leaflet-popup-content a{font-weight:600;}
+
+  @media (max-width:860px){
+    main{grid-template-columns:1fr;}
+    #map-pane{display:none;}
+    #list-pane{display:none;}
+    main.show-list #list-pane{display:flex;}
+    main.show-map #map-pane{display:block;}
+    .view-toggle{display:flex;}
+    .brand p{display:none;}
+  }
+</style>
 </head>
 <body>
-  <div id="root"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
-  <script type="text/babel">
-    const { useState, useEffect, useCallback } = React;
 
-    const MODEL     = "claude-sonnet-4-20250514";
-    const CACHE_KEY = "luma_v10";
-    const CACHE_TTL = 7 * 24 * 60 * 60 * 1000;
+<header>
+  <div class="top-row">
+    <div class="brand">
+      <span class="flag">⛳</span>
+      <div>
+        <h1>UK Golf Courses</h1>
+        <p>Live from OpenStreetMap</p>
+      </div>
+    </div>
+    <div class="search-wrap">
+      <span class="icon">🔍</span>
+      <input id="search-input" type="text" placeholder="Search by course, town or postcode…" autocomplete="off" />
+    </div>
+    <button class="btn solid" id="locate-btn">📍 Near me</button>
+    <button class="btn" id="refresh-btn" title="Re-fetch course data">↻ Refresh</button>
+  </div>
+  <div class="filter-row">
+    <button class="chip active" data-country="all">All nations</button>
+    <button class="chip" data-country="England">England</button>
+    <button class="chip" data-country="Scotland">Scotland</button>
+    <button class="chip" data-country="Wales">Wales</button>
+    <button class="chip" data-country="Northern Ireland">N. Ireland</button>
+    <span class="status-text" id="status-text">Loading…</span>
+  </div>
+  <div class="view-toggle">
+    <button class="chip active" id="tab-list">☰ List</button>
+    <button class="chip" id="tab-map">🗺 Map</button>
+  </div>
+</header>
 
-    const LOCS  = [{ id:"cambridge",label:"Cambridge" },{ id:"london",label:"London" },{ id:"daytrips",label:"Day Trips" }];
-    const VIBES = [{ id:"all",label:"All" },{ id:"culture",label:"Culture" },{ id:"music",label:"Music" },{ id:"food",label:"Food" },{ id:"nature",label:"Nature" },{ id:"nightlife",label:"Nights" }];
-    const TIER_CFG = {
-      "unmissable":{ sym:"◉", col:"#8B5E1A" },"hidden gem":{ sym:"◈", col:"#2E6B4F" },
-      "insider":{ sym:"◇", col:"#5A3A6B" },"local institution":{ sym:"◆", col:"#1E4A6B" },
-      "rare find":{ sym:"✦", col:"#7A2A5A" },"under-discovered":{ sym:"◌", col:"#4A3E32" },
+<main id="main" class="show-list">
+  <section id="list-pane">
+    <div id="list-scroll">
+      <div class="load-state" id="initial-load">
+        <div class="spinner"></div>
+        <h3>Fetching every course in the UK…</h3>
+        <p>Pulling live data from OpenStreetMap. This can take up to a minute the first time — results are then cached in your browser for two weeks.</p>
+      </div>
+    </div>
+  </section>
+  <section id="map-pane">
+    <div id="map"></div>
+  </section>
+</main>
+
+<div id="attribution-bar">
+  <span>Course data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, ODbL. Some entries may be incomplete or outdated — always confirm with the course before visiting.</span>
+  <span id="updated-text"></span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var CACHE_KEY = "ukgolf_v1";
+  var CACHE_TTL = 14 * 24 * 60 * 60 * 1000;
+  var PAGE_SIZE = 150;
+
+  var OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter"
+  ];
+
+  var NATIONS = [
+    { name: "England", iso: "GB-ENG" },
+    { name: "Scotland", iso: "GB-SCT" },
+    { name: "Wales", iso: "GB-WLS" },
+    { name: "Northern Ireland", iso: "GB-NIR" }
+  ];
+
+  var els = {
+    listScroll: document.getElementById("list-scroll"),
+    searchInput: document.getElementById("search-input"),
+    locateBtn: document.getElementById("locate-btn"),
+    refreshBtn: document.getElementById("refresh-btn"),
+    statusText: document.getElementById("status-text"),
+    updatedText: document.getElementById("updated-text"),
+    main: document.getElementById("main"),
+    tabList: document.getElementById("tab-list"),
+    tabMap: document.getElementById("tab-map"),
+    chips: Array.prototype.slice.call(document.querySelectorAll(".chip[data-country]"))
+  };
+
+  var state = {
+    all: [],
+    filtered: [],
+    countryFilter: "all",
+    searchTerm: "",
+    visibleCount: PAGE_SIZE,
+    userLoc: null,
+    selectedId: null
+  };
+
+  var store = {
+    get: function(k){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; } },
+    set: function(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+  };
+
+  // ---------- Map setup ----------
+  var map = L.map("map", { zoomControl: true }).setView([54.5, -3.5], 6);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
+    subdomains: "abcd"
+  }).addTo(map);
+  var clusterGroup = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50 });
+  map.addLayer(clusterGroup);
+  var userMarker = null;
+
+  var golfIcon = L.divIcon({
+    className: "",
+    html: '<div style="background:#1B4332;color:#fff;width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,0.4);"><span style="transform:rotate(45deg);font-size:11px;line-height:1;">⛳</span></div>',
+    iconSize: [22, 22],
+    iconAnchor: [11, 22],
+    popupAnchor: [0, -20]
+  });
+
+  // ---------- Overpass fetch ----------
+  function buildQuery(iso){
+    return '[out:json][timeout:90];area["ISO3166-2"="' + iso + '"]->.a;' +
+      '(node["leisure"="golf_course"](area.a);way["leisure"="golf_course"](area.a);relation["leisure"="golf_course"](area.a););' +
+      'out center tags;';
+  }
+
+  function fetchViaEndpoint(url, query){
+    return fetch(url, { method: "POST", body: "data=" + encodeURIComponent(query) })
+      .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+
+  function fetchNation(nation){
+    var query = buildQuery(nation.iso);
+    var chain = Promise.reject();
+    OVERPASS_ENDPOINTS.forEach(function(url){
+      chain = chain.catch(function(){ return fetchViaEndpoint(url, query); });
+    });
+    return chain.then(function(json){
+      return (json.elements || []).map(function(el){ return normalize(el, nation.name); }).filter(Boolean);
+    });
+  }
+
+  function normalize(el, country){
+    var lat = el.lat != null ? el.lat : (el.center ? el.center.lat : null);
+    var lon = el.lon != null ? el.lon : (el.center ? el.center.lon : null);
+    if (lat == null || lon == null) return null;
+    var t = el.tags || {};
+    var town = t["addr:city"] || t["addr:town"] || t["addr:suburb"] || t["addr:village"] || "";
+    var postcode = t["addr:postcode"] || "";
+    var website = t.website || t["contact:website"] || t.url || "";
+    if (website && !/^https?:\/\//i.test(website)) website = "https://" + website;
+    return {
+      id: el.type + "/" + el.id,
+      name: t.name || t.operator || "Unnamed golf course",
+      country: country,
+      town: town,
+      postcode: postcode,
+      holes: t.holes || "",
+      phone: t.phone || t["contact:phone"] || "",
+      website: website,
+      lat: lat,
+      lon: lon
     };
-    const AV_COLOR = { available:"#2E6B4F", limited:"#8B5E1A", check:"#1E4A6B" };
+  }
 
-    const store = {
-      get: k => { try { const v=localStorage.getItem(k); return v?JSON.parse(v):null; } catch { return null; } },
-      set: (k,v) => { try { localStorage.setItem(k,JSON.stringify(v)); } catch {} },
-    };
+  function dedupe(list){
+    var seen = {};
+    return list.filter(function(c){
+      var key = c.name.toLowerCase() + "|" + c.lat.toFixed(3) + "|" + c.lon.toFixed(3);
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
 
-    function loadCache() {
-      const c = store.get(CACHE_KEY);
-      if (!c||!c.data||Date.now()-c.ts>CACHE_TTL) return null;
-      return c;
+  function loadAll(forceFresh){
+    var cached = !forceFresh && store.get(CACHE_KEY);
+    if (cached && cached.data && (Date.now() - cached.ts) < CACHE_TTL) {
+      state.all = cached.data;
+      onDataReady(cached.ts);
+      return;
     }
-    function saveCache(data) {
-      const c = { ts:Date.now(), next:Date.now()+CACHE_TTL, data };
-      store.set(CACHE_KEY,c); return c;
-    }
-    const daysLeft = c => c?.next ? Math.max(0,Math.ceil((c.next-Date.now())/86400000)) : 0;
-    const fmtTs = ts => new Date(ts).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
-
-    function buildPrompt(location) {
-      const mo = new Date().toLocaleString("en-GB",{month:"long"});
-      const yr = new Date().getFullYear();
-      return `You are Luma's curation engine. Find 6 culturally rich, under-discovered experiences in ${location}.\n\nToday: ${mo} ${yr}. Focus on the next 6-8 weeks.\n\nOPTIMISE FOR: originality, hidden gems, atmosphere, memorability, local cultural relevance.\nAVOID: tourist traps, chains, SEO top-10 content, sold-out events.\n\nReturn ONLY a raw JSON array of exactly 6 objects. No markdown. No explanation.\n\nEach object needs: id, title, type, tier (unmissable|hidden gem|insider|local institution|rare find|under-discovered), dates, venue, transport, price, availability (available|limited|check), availNote, bookUrl, why (2-3 sentences), lumaNote, sources (array), instaTags (array of #tags), instaAccounts (array of @handles), vibeWords (array), category (culture|music|food|nature|nightlife)`;
-    }
-
-    async function fetchLoc(location, key) {
-      const r = await fetch("https://api.anthropic.com/v1/messages", {
-        method:"POST",
-        headers:{ "Content-Type":"application/json", "x-api-key":key, "anthropic-version":"2023-06-01" },
-        body: JSON.stringify({
-          model:MODEL, max_tokens:1000,
-          system:"Return ONLY a valid JSON array. No markdown. No extra text.",
-          messages:[{ role:"user", content:buildPrompt(location) }],
-        }),
+    setStatus("Fetching courses from OpenStreetMap…");
+    Promise.all(NATIONS.map(fetchNation))
+      .then(function(results){
+        var merged = dedupe(Array.prototype.concat.apply([], results));
+        merged.sort(function(a,b){ return a.name.localeCompare(b.name); });
+        state.all = merged;
+        var ts = Date.now();
+        store.set(CACHE_KEY, { ts: ts, data: merged });
+        onDataReady(ts);
+      })
+      .catch(function(err){
+        console.error(err);
+        renderError();
       });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const j = await r.json();
-      const raw = (j.content||[]).map(b=>b.text||"").join("").trim();
-      const clean = raw.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/i,"").trim();
-      return JSON.parse(clean);
+  }
+
+  function onDataReady(ts){
+    els.updatedText.textContent = "Updated " + new Date(ts).toLocaleDateString("en-GB", { day:"numeric", month:"short", year:"numeric" });
+    applyFilters();
+  }
+
+  function setStatus(text){ els.statusText.textContent = text; }
+
+  // ---------- Filtering ----------
+  function applyFilters(){
+    var term = state.searchTerm.trim().toLowerCase();
+    state.filtered = state.all.filter(function(c){
+      if (state.countryFilter !== "all" && c.country !== state.countryFilter) return false;
+      if (!term) return true;
+      return c.name.toLowerCase().indexOf(term) !== -1 ||
+             c.town.toLowerCase().indexOf(term) !== -1 ||
+             c.postcode.toLowerCase().indexOf(term) !== -1;
+    });
+    if (state.userLoc) {
+      state.filtered.forEach(function(c){ c.dist = haversine(state.userLoc, c); });
+      state.filtered.sort(function(a,b){ return a.dist - b.dist; });
     }
+    state.visibleCount = PAGE_SIZE;
+    setStatus(state.all.length ? (state.filtered.length + " of " + state.all.length + " courses") : "Loading…");
+    renderList();
+    renderMapMarkers();
+  }
 
-    function Panel({ label, accentColor, children }) {
-      const [open,setOpen] = useState(false);
-      const bc = accentColor?"rgba(193,53,132,0.2)":"rgba(90,78,66,0.13)";
-      const ic = accentColor||"#8B5E1A";
-      return (
-        <div>
-          <button onClick={e=>{e.stopPropagation();setOpen(o=>!o);}}
-            style={{width:"100%",border:`1px solid ${bc}`,background:"rgba(90,78,66,0.03)",borderRadius:6,display:"flex",alignItems:"center",gap:7,padding:"9px 12px",cursor:"pointer",fontFamily:"sans-serif",fontSize:12,color:"#6A5A48",textAlign:"left"}}>
-            <span style={{color:ic,fontSize:13}}>{accentColor?"⊹":"◈"}</span>
-            <span>{label}</span>
-            <span style={{marginLeft:"auto",opacity:0.35,fontSize:10}}>{open?"▲":"▼"}</span>
-          </button>
-          {open&&<div className="luma-slide" style={{border:`1px solid ${bc}`,borderTop:"none",borderRadius:"0 0 6px 6px",background:accentColor?"rgba(193,53,132,0.025)":"rgba(90,78,66,0.025)",padding:"11px 12px 10px",display:"flex",flexDirection:"column",gap:9}}>{children}</div>}
-        </div>
-      );
+  function haversine(a, c){
+    var R = 6371;
+    var dLat = (c.lat - a.lat) * Math.PI/180;
+    var dLon = (c.lon - a.lon) * Math.PI/180;
+    var lat1 = a.lat * Math.PI/180, lat2 = c.lat * Math.PI/180;
+    var h = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+  }
+
+  // ---------- List rendering ----------
+  function courseMetaHtml(c){
+    var bits = [];
+    if (c.town || c.postcode) bits.push('<span>📍 ' + escapeHtml([c.town, c.postcode].filter(Boolean).join(", ")) + '</span>');
+    if (c.holes) bits.push('<span>⛳ ' + escapeHtml(c.holes) + ' holes</span>');
+    if (c.dist != null) bits.push('<span>' + (c.dist < 1 ? Math.round(c.dist*1000) + " m" : c.dist.toFixed(1) + " km") + '</span>');
+    return bits.join("");
+  }
+
+  function renderList(){
+    if (!state.all.length) return;
+    var slice = state.filtered.slice(0, state.visibleCount);
+    if (!state.filtered.length) {
+      els.listScroll.innerHTML =
+        '<div class="empty-state"><span class="glyph">🔍</span><h3>No courses match</h3><p>Try a different search term or clear the nation filter.</p></div>';
+      return;
     }
-
-    function IGPanel({ item }) {
-      const go = tag => { const q=tag.replace(/^[#@]/,""); window.open(tag.startsWith("@")?`https://www.instagram.com/${q}/`:`https://www.instagram.com/explore/tags/${q}/`,"_blank"); };
-      return (
-        <Panel label="Vibe check on Instagram" accentColor="#A0206A">
-          <p style={{margin:0,fontSize:11,color:"#7A6A58",fontStyle:"italic",fontFamily:"sans-serif"}}>Tap to open Instagram — see the atmosphere before you go.</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{(item.instaTags||[]).map(t=><button key={t} onClick={()=>go(t)} style={{border:"1px solid rgba(193,53,132,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#A0206A",background:"transparent",cursor:"pointer"}}>{t}</button>)}</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{(item.instaAccounts||[]).map(a=><button key={a} onClick={()=>go(a)} style={{border:"1px solid rgba(184,131,42,0.25)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#8B5E18",background:"transparent",cursor:"pointer"}}>{a}</button>)}</div>
-          {(item.vibeWords||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:5}}>{item.vibeWords.map(v=><span key={v} style={{border:"1px solid rgba(90,78,66,0.18)",borderRadius:4,padding:"3px 9px",fontSize:11,fontFamily:"sans-serif",color:"#6A5A48"}}>{v}</span>)}</div>}
-        </Panel>
-      );
+    var html = slice.map(function(c){
+      var links = [];
+      if (c.website) links.push('<a href="' + c.website + '" target="_blank" rel="noopener">Website ↗</a>');
+      links.push('<a href="https://www.google.com/maps/dir/?api=1&destination=' + c.lat + ',' + c.lon + '" target="_blank" rel="noopener">Directions ↗</a>');
+      if (c.phone) links.push('<a href="tel:' + escapeHtml(c.phone) + '">' + escapeHtml(c.phone) + '</a>');
+      return '<div class="course-card" data-id="' + c.id + '">' +
+        '<h3>' + escapeHtml(c.name) + '</h3>' +
+        '<div class="course-meta">' + courseMetaHtml(c) + '</div>' +
+        '<div class="course-links">' + links.join("") + '</div>' +
+      '</div>';
+    }).join("");
+    if (state.filtered.length > state.visibleCount) {
+      html += '<div class="load-more-wrap"><button id="load-more-btn">Show ' + Math.min(PAGE_SIZE, state.filtered.length - state.visibleCount) + ' more (' + (state.filtered.length - state.visibleCount) + ' remaining)</button></div>';
     }
+    els.listScroll.innerHTML = html;
+    var loadMoreBtn = document.getElementById("load-more-btn");
+    if (loadMoreBtn) loadMoreBtn.addEventListener("click", function(){
+      state.visibleCount += PAGE_SIZE;
+      renderList();
+    });
+    Array.prototype.forEach.call(els.listScroll.querySelectorAll(".course-card"), function(card){
+      card.addEventListener("click", function(){ focusCourse(card.getAttribute("data-id"), true); });
+    });
+  }
 
-    function GlassPanel({ item }) {
-      return (
-        <Panel label="Why Luma picked this">
-          {item.lumaNote&&<div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>INSIDER NOTE</span><p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.lumaNote}</p></div>}
-          <div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>BOOKING</span><p style={{margin:0,fontSize:12,color:"#6A5A48",fontFamily:"sans-serif",lineHeight:1.6}}>{item.availNote}</p></div>
-          {(item.sources||[]).length>0&&<div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:9,color:"#A09080",letterSpacing:"0.12em",textTransform:"uppercase",fontFamily:"sans-serif"}}>SOURCES</span><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{item.sources.map(s=><span key={s} style={{border:"1px solid rgba(90,78,66,0.15)",borderRadius:3,padding:"2px 6px",fontSize:10,fontFamily:"sans-serif",color:"#7A6A58",background:"rgba(90,78,66,0.04)"}}>{s}</span>)}</div></div>}
-        </Panel>
-      );
+  function renderError(){
+    els.listScroll.innerHTML =
+      '<div class="load-state"><span class="glyph">⚠️</span><h3>Couldn\'t load course data</h3>' +
+      '<p>The OpenStreetMap data service didn\'t respond. Check your connection and try again.</p>' +
+      '<button class="btn solid" id="retry-btn" style="margin-top:6px;">Retry</button></div>';
+    setStatus("Failed to load");
+    var retryBtn = document.getElementById("retry-btn");
+    if (retryBtn) retryBtn.addEventListener("click", function(){ loadAll(true); });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(m){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[m];
+    });
+  }
+
+  // ---------- Map rendering ----------
+  var markerById = {};
+  function renderMapMarkers(){
+    clusterGroup.clearLayers();
+    markerById = {};
+    state.filtered.forEach(function(c){
+      var marker = L.marker([c.lat, c.lon], { icon: golfIcon });
+      var popupHtml = '<h4>' + escapeHtml(c.name) + '</h4>' +
+        '<div class="pmeta">' + [c.town, c.postcode].filter(Boolean).map(escapeHtml).join(", ") + (c.holes ? (" · " + escapeHtml(c.holes) + " holes") : "") + '</div>' +
+        (c.website ? '<a href="' + c.website + '" target="_blank" rel="noopener">Website ↗</a><br/>' : "") +
+        '<a href="https://www.google.com/maps/dir/?api=1&destination=' + c.lat + ',' + c.lon + '" target="_blank" rel="noopener">Directions ↗</a>';
+      marker.bindPopup(popupHtml);
+      marker.on("click", function(){ setSelected(c.id, false); });
+      markerById[c.id] = marker;
+      clusterGroup.addLayer(marker);
+    });
+  }
+
+  function focusCourse(id, fromList){
+    var c = state.filtered.find(function(x){ return x.id === id; }) || state.all.find(function(x){ return x.id === id; });
+    if (!c) return;
+    setSelected(id, true);
+    if (window.matchMedia("(max-width:860px)").matches && fromList) switchTab("map");
+    map.setView([c.lat, c.lon], Math.max(map.getZoom(), 14), { animate: true });
+    var marker = markerById[id];
+    if (marker) {
+      if (clusterGroup.hasLayer(marker)) {
+        clusterGroup.zoomToShowLayer(marker, function(){ marker.openPopup(); });
+      }
     }
+  }
 
-    function Card({ item, saved, onSave, delay }) {
-      const [open,setOpen] = useState(false);
-      const tier = TIER_CFG[item.tier]||TIER_CFG["under-discovered"];
-      const avc  = AV_COLOR[item.availability]||AV_COLOR.check;
-      return (
-        <div className="luma-card" style={{animationDelay:`${delay}ms`,padding:"15px 16px 8px",borderBottom:"1px solid rgba(90,78,66,0.12)",background:"#F4EFE6",cursor:"pointer"}} onClick={()=>setOpen(o=>!o)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
-            <span style={{fontSize:10.5,fontFamily:"sans-serif",fontWeight:600,letterSpacing:"0.05em",color:tier.col}}>{tier.sym} {item.tier}</span>
-            <button style={{background:"none",border:"none",fontSize:19,cursor:"pointer",color:saved?"#B8832A":"#C4AD94",lineHeight:1,padding:"2px 4px"}} onClick={e=>{e.stopPropagation();onSave(item);}}>{saved?"◆":"◇"}</button>
-          </div>
-          <h3 style={{margin:"0 0 2px",fontSize:17,fontWeight:400,lineHeight:1.25,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>{item.title}</h3>
-          <p style={{margin:"0 0 9px",fontSize:10.5,color:"#7A6A58",fontFamily:"sans-serif",letterSpacing:"0.05em",textTransform:"uppercase"}}>{item.type}</p>
-          <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{width:6,height:6,borderRadius:"50%",background:avc,flexShrink:0,display:"inline-block"}}/>
-            <span style={{fontSize:11,color:"#7A6A58",fontFamily:"sans-serif"}}>{item.availability}</span>
-            <span style={{fontSize:11.5,color:"#5A4A38",fontFamily:"sans-serif",marginLeft:"auto"}}>{item.price}</span>
-          </div>
-          {open&&(
-            <div className="luma-slide" style={{marginTop:13,paddingTop:13,borderTop:"1px solid rgba(90,78,66,0.1)"}} onClick={e=>e.stopPropagation()}>
-              <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:12}}>
-                {[["📅",item.dates],["📍",item.venue],["🚇",item.transport]].map(([ic,tx])=>(
-                  <div key={ic} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                    <span style={{fontSize:11,flexShrink:0,marginTop:1}}>{ic}</span>
-                    <span style={{fontSize:12,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.5}}>{tx}</span>
-                  </div>
-                ))}
-              </div>
-              <p style={{margin:"0 0 14px",fontSize:14,lineHeight:1.75,color:"#3A2E22",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>{item.why}</p>
-              <a href={item.bookUrl} target="_blank" rel="noopener noreferrer"
-                style={{display:"block",textAlign:"center",background:"#1C1610",color:"#F4EFE6",borderRadius:8,padding:"12px 0",fontSize:13,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",textDecoration:"none",marginBottom:4}}
-                onClick={e=>e.stopPropagation()}>Book / check tickets →</a>
-              <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:14}}>
-                <GlassPanel item={item}/>
-                <IGPanel item={item}/>
-              </div>
-            </div>
-          )}
-          <p style={{textAlign:"right",fontSize:9.5,color:"#C4AD94",margin:"7px 0 0",fontFamily:"sans-serif",letterSpacing:"0.04em"}}>{open?"▲ close":"▼ details + booking"}</p>
-        </div>
-      );
+  function setSelected(id, scrollIntoView){
+    state.selectedId = id;
+    Array.prototype.forEach.call(els.listScroll.querySelectorAll(".course-card"), function(card){
+      card.classList.toggle("selected", card.getAttribute("data-id") === id);
+    });
+    if (scrollIntoView) {
+      var el = els.listScroll.querySelector('.course-card[data-id="' + cssEscape(id) + '"]');
+      if (el) el.scrollIntoView({ block: "nearest" });
     }
+  }
+  function cssEscape(s){ return String(s).replace(/[^a-zA-Z0-9_\-\/]/g, "\\$&"); }
 
-    function Skeleton({ delay }) {
-      return (
-        <div className="luma-pulse" style={{padding:"18px 16px",borderBottom:"1px solid rgba(90,78,66,0.12)",animationDelay:`${delay}ms`}}>
-          <div style={{height:11,width:"38%",background:"#E2DAD0",borderRadius:2,marginBottom:10}}/>
-          <div style={{height:19,width:"74%",background:"#E2DAD0",borderRadius:2,marginBottom:8}}/>
-          <div style={{height:11,width:"54%",background:"#EAE4DA",borderRadius:2,marginBottom:5}}/>
-          <div style={{height:11,width:"27%",background:"#EAE4DA",borderRadius:2}}/>
-        </div>
-      );
-    }
+  // ---------- Controls ----------
+  var searchTimer = null;
+  els.searchInput.addEventListener("input", function(e){
+    clearTimeout(searchTimer);
+    var val = e.target.value;
+    searchTimer = setTimeout(function(){ state.searchTerm = val; applyFilters(); }, 180);
+  });
 
-    function KeyEntry({ onSave }) {
-      const [val, setVal] = useState("");
-      return (
-        <div style={{margin:16,padding:20,borderRadius:12,background:"#FFFCF7",border:"1px solid rgba(184,131,42,0.25)"}}>
-          <p style={{margin:"0 0 6px",fontSize:16,fontWeight:400,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>Enter your API key</p>
-          <p style={{margin:"0 0 14px",fontSize:12.5,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.6}}>Your key is saved only in this browser — it never leaves your device.</p>
-          <input
-            type="password"
-            placeholder="paste your key here"
-            value={val}
-            onChange={e=>setVal(e.target.value)}
-            onKeyDown={e=>e.key==="Enter"&&onSave(val.trim())}
-            style={{width:"100%",padding:"11px 13px",borderRadius:8,border:"1px solid rgba(184,131,42,0.3)",background:"#F4EFE6",fontFamily:"sans-serif",fontSize:13,color:"#1C1610",marginBottom:10,outline:"none",WebkitAppearance:"none"}}
-          />
-          <button onClick={()=>onSave(val.trim())} disabled={!val.trim()}
-            style={{width:"100%",background:"#1C1610",color:"#F4EFE6",border:"none",borderRadius:8,padding:"12px 0",fontSize:13,fontFamily:"sans-serif",fontWeight:700,cursor:"pointer",opacity:val.trim()?1:0.4}}>
-            Save &amp; load picks →
-          </button>
-        </div>
-      );
-    }
+  els.chips.forEach(function(chip){
+    chip.addEventListener("click", function(){
+      els.chips.forEach(function(c){ c.classList.remove("active"); });
+      chip.classList.add("active");
+      state.countryFilter = chip.getAttribute("data-country");
+      applyFilters();
+    });
+  });
 
-    function Feed({ cache, loading, error, apiKey, onSaveKey, saved, onSave }) {
-      const [loc,setLoc]   = useState("cambridge");
-      const [vibe,setVibe] = useState("all");
-      const items    = cache?.data?.[loc]||[];
-      const filtered = vibe==="all"?items:items.filter(it=>it.category===vibe);
-      return (
-        <div style={{display:"flex",flexDirection:"column"}}>
-          <div style={{display:"flex",overflowX:"auto",borderBottom:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6",position:"sticky",top:0,zIndex:8}}>
-            {LOCS.map(l=><button key={l.id} onClick={()=>setLoc(l.id)} style={{flex:"0 0 auto",padding:"11px 22px",fontSize:12.5,fontFamily:"sans-serif",letterSpacing:"0.05em",border:"none",background:"transparent",cursor:"pointer",whiteSpace:"nowrap",borderBottom:loc===l.id?"2px solid #B8832A":"2px solid transparent",color:loc===l.id?"#1C1610":"#7A6A58",fontWeight:loc===l.id?700:400}}>{l.label}</button>)}
-          </div>
-          <div style={{display:"flex",gap:6,padding:"10px 14px",overflowX:"auto",borderBottom:"1px solid rgba(90,78,66,0.07)"}}>
-            {VIBES.map(v=><button key={v.id} onClick={()=>setVibe(v.id)} style={{flex:"0 0 auto",padding:"5px 13px",borderRadius:20,border:"1px solid rgba(90,78,66,0.18)",background:vibe===v.id?"#1C1610":"transparent",color:vibe===v.id?"#F4EFE6":"#7A6A58",fontSize:12,fontFamily:"sans-serif",cursor:"pointer",whiteSpace:"nowrap"}}>{v.label}</button>)}
-          </div>
-          {cache?.ts&&!loading&&<div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 16px",background:"rgba(184,131,42,0.05)",borderBottom:"1px solid rgba(184,131,42,0.1)"}}><span style={{color:"#B8832A",fontSize:11}}>◈</span><span style={{fontSize:11,color:"#8C6A2A",fontFamily:"sans-serif"}}>Curated {fmtTs(cache.ts)} · refreshes in {daysLeft(cache)}d</span></div>}
-          {!apiKey&&!loading&&<KeyEntry onSave={onSaveKey}/>}
-          {loading&&[0,1,2,3].map(i=><Skeleton key={i} delay={i*100}/>)}
-          {error&&!loading&&<div style={{margin:16,padding:16,borderRadius:8,background:"rgba(139,30,30,0.05)",border:"1px solid rgba(139,30,30,0.14)"}}><p style={{margin:0,fontSize:13,color:"#7A2A2A",fontFamily:"sans-serif",lineHeight:1.6}}>Couldn't load picks — tap Refresh to try again.</p></div>}
-          {!loading&&!error&&apiKey&&filtered.map((item,i)=><Card key={item.id} item={item} saved={saved.some(s=>s.id===item.id)} onSave={onSave} delay={i*55}/>)}
-          {!loading&&!error&&apiKey&&items.length>0&&filtered.length===0&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>◌</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing in that filter</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Try "All" or switch location.</p></div>}
-          {!loading&&!error&&apiKey&&!cache&&<div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>↻</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>No picks yet</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap Refresh to load your first curation.</p></div>}
-        </div>
-      );
-    }
+  els.refreshBtn.addEventListener("click", function(){
+    els.listScroll.innerHTML = '<div class="load-state"><div class="spinner"></div><h3>Refreshing course data…</h3></div>';
+    loadAll(true);
+  });
 
-    function Saved({ saved, onSave }) {
-      if (!saved.length) return <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"64px 32px",gap:8}}><p style={{fontSize:34,color:"#C4AD94",margin:0}}>◇</p><p style={{fontSize:16,color:"#5A4A38",margin:0}}>Nothing saved</p><p style={{fontSize:13,color:"#7A6A58",margin:0,fontFamily:"sans-serif",textAlign:"center"}}>Tap ◇ on any pick to save it here.</p></div>;
-      return <div style={{display:"flex",flexDirection:"column"}}>{saved.map((item,i)=><Card key={item.id} item={item} saved onSave={onSave} delay={i*50}/>)}</div>;
-    }
+  els.locateBtn.addEventListener("click", function(){
+    if (!navigator.geolocation) { alert("Geolocation isn't available in this browser."); return; }
+    els.locateBtn.disabled = true;
+    els.locateBtn.textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition(function(pos){
+      state.userLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      if (userMarker) map.removeLayer(userMarker);
+      userMarker = L.circleMarker([state.userLoc.lat, state.userLoc.lon], { radius: 7, color: "#B8862E", fillColor: "#B8862E", fillOpacity: 0.9, weight: 2 }).addTo(map);
+      map.setView([state.userLoc.lat, state.userLoc.lon], 11);
+      els.locateBtn.disabled = false;
+      els.locateBtn.textContent = "📍 Near me";
+      applyFilters();
+    }, function(){
+      els.locateBtn.disabled = false;
+      els.locateBtn.textContent = "📍 Near me";
+      alert("Couldn't get your location. Check location permissions and try again.");
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  });
 
-    function Refresh({ cache, onRefresh, loading }) {
-      const total = Object.values(cache?.data||{}).reduce((n,a)=>n+(Array.isArray(a)?a.length:0),0);
-      return (
-        <div style={{padding:"16px 16px 48px",display:"flex",flexDirection:"column",gap:12}}>
-          <div style={{background:"#FFFCF7",border:"1px solid rgba(90,78,66,0.12)",borderRadius:12,padding:20,display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{fontSize:26,margin:0}}>↻</p>
-            <h2 style={{margin:0,fontSize:18,fontWeight:400,color:"#1C1610",fontFamily:"'Palatino Linotype',Palatino,Georgia,serif"}}>Curation Engine</h2>
-            <p style={{margin:0,fontSize:13,lineHeight:1.7,color:"#5A4A38",fontFamily:"sans-serif"}}>Luma searches across independent venues, supper clubs, music nights, nature spots and cultural spaces. Results cache for 7 days.</p>
-            {cache?.ts&&<div style={{background:"rgba(184,131,42,0.06)",borderRadius:8,padding:"12px 14px",display:"flex",flexDirection:"column",gap:8}}>{[["Last curated",fmtTs(cache.ts)],["Next refresh",`in ${daysLeft(cache)} days`],["Picks cached",`${total} across 3 locations`]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,color:"#7A6A58",fontFamily:"sans-serif"}}>{k}</span><span style={{fontSize:12,color:"#3A2E22",fontFamily:"sans-serif",fontWeight:700}}>{v}</span></div>)}</div>}
-            <button onClick={onRefresh} disabled={loading} style={{background:"#1C1610",color:"#F4EFE6",border:"none",borderRadius:8,padding:"13px 0",width:"100%",fontSize:14,fontFamily:"sans-serif",fontWeight:700,letterSpacing:"0.04em",cursor:"pointer",opacity:loading?0.45:1}}>{loading?"Searching — ~30 seconds…":"Refresh now →"}</button>
-          </div>
-          <div style={{background:"#FFFCF7",border:"1px solid rgba(90,78,66,0.12)",borderRadius:12,padding:20,display:"flex",flexDirection:"column",gap:12}}>
-            <p style={{margin:0,fontSize:10.5,letterSpacing:"0.1em",textTransform:"uppercase",color:"#8C7B68",fontFamily:"sans-serif"}}>How it works</p>
-            {[["◉","Originality","Skips anything in Google's top 5."],["◈","Atmosphere","The space matters as much as the event."],["◇","Availability","Sold-out events excluded, not shown."],["◌","Freshness","Focused on the next 6-8 weeks."],["✦","Transparency","Every card shows sources and booking notes."]].map(([g,h,b])=><div key={h} style={{display:"flex",gap:10,alignItems:"flex-start"}}><span style={{color:"#B8832A",fontSize:14,flexShrink:0,marginTop:1}}>{g}</span><div><p style={{margin:0,fontSize:12,fontWeight:700,color:"#3A2E22",fontFamily:"sans-serif"}}>{h}</p><p style={{margin:0,fontSize:12,color:"#7A6A58",fontFamily:"sans-serif",lineHeight:1.5}}>{b}</p></div></div>)}
-          </div>
-        </div>
-      );
-    }
+  function switchTab(tab){
+    els.main.className = tab === "map" ? "show-map" : "show-list";
+    els.tabList.classList.toggle("active", tab !== "map");
+    els.tabMap.classList.toggle("active", tab === "map");
+    if (tab === "map") setTimeout(function(){ map.invalidateSize(); }, 50);
+  }
+  els.tabList.addEventListener("click", function(){ switchTab("list"); });
+  els.tabMap.addEventListener("click", function(){ switchTab("map"); });
 
-    function App() {
-      const [tab,     setTab]    = useState("feed");
-      const [cache,   setCache]  = useState(null);
-      const [loading, setLoading]= useState(false);
-      const [error,   setError]  = useState(false);
-      const [saved,   setSaved]  = useState([]);
-      const [apiKey,  setApiKey] = useState(() => store.get("luma_api_key")||"");
+  window.addEventListener("resize", function(){ map.invalidateSize(); });
 
-      const doRefresh = useCallback(async (key) => {
-        const k = key || store.get("luma_api_key") || "";
-        if (!k) return;
-        setLoading(true); setError(false);
-        try {
-          const [cambridge, london, daytrips] = await Promise.all([
-            fetchLoc("Cambridge UK — independent arts, hidden music venues, supper clubs, nature walks", k),
-            fetchLoc("London UK — underground clubs, independent galleries, supper clubs, hidden gems", k),
-            fetchLoc("day trips 60-90 min from Cambridge UK: Ely, Norfolk coast, Suffolk, Wimpole, Wicken Fen", k),
-          ]);
-          setCache(saveCache({ cambridge, london, daytrips }));
-        } catch(err) {
-          console.error(err); setError(true);
-        } finally {
-          setLoading(false);
-        }
-      }, []);
-
-      const handleSaveKey = useCallback((k) => {
-        if (!k) return;
-        store.set("luma_api_key", k);
-        setApiKey(k);
-        const c = loadCache();
-        if (c) setCache(c);
-        else doRefresh(k);
-      }, [doRefresh]);
-
-      useEffect(() => {
-        const s = store.get("luma_saved"); if (s) setSaved(s);
-        const k = store.get("luma_api_key") || "";
-        if (k) { setApiKey(k); const c=loadCache(); if(c) setCache(c); else doRefresh(k); }
-      }, [doRefresh]);
-
-      useEffect(() => { store.set("luma_saved", saved); }, [saved]);
-
-      const toggleSave = useCallback(item => {
-        setSaved(prev => prev.some(s=>s.id===item.id) ? prev.filter(s=>s.id!==item.id) : [...prev,item]);
-      }, []);
-
-      const now = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
-
-      return (
-        <div id="luma-shell" style={{width:"100%",maxWidth:430,margin:"0 auto",height:"100dvh",minHeight:"100dvh",display:"flex",flexDirection:"column",background:"#F4EFE6",fontFamily:"'Palatino Linotype','Book Antiqua',Palatino,Georgia,serif",color:"#1C1610",overflow:"hidden"}}>
-          <div style={{height:44,flexShrink:0,padding:"10px 20px 0",display:"flex",justifyContent:"flex-end",background:"#F4EFE6"}}>
-            <span style={{fontSize:13,fontWeight:600,fontFamily:"sans-serif"}}>{now}</span>
-          </div>
-          <header style={{height:50,flexShrink:0,padding:"0 18px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9.5" stroke="#B8832A" strokeWidth="1.3"/>
-                <circle cx="12" cy="12" r="3.5" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="12" y1="2.5" x2="12" y2="8" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="12" y1="16" x2="12" y2="21.5" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="2.5" y1="12" x2="8" y2="12" stroke="#B8832A" strokeWidth="1.3"/>
-                <line x1="16" y1="12" x2="21.5" y2="12" stroke="#B8832A" strokeWidth="1.3"/>
-              </svg>
-              <span style={{fontSize:21,letterSpacing:"0.13em",lineHeight:1}}>luma</span>
-            </div>
-            <span style={{fontSize:10,color:"#7A6A58",letterSpacing:"0.08em",textTransform:"uppercase",fontFamily:"sans-serif"}}>cultural intelligence</span>
-          </header>
-          <main style={{flex:1,overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch"}}>
-            {tab==="feed"    && <Feed    cache={cache} loading={loading} error={error} apiKey={apiKey} onSaveKey={handleSaveKey} saved={saved} onSave={toggleSave}/>}
-            {tab==="saved"   && <Saved   saved={saved} onSave={toggleSave}/>}
-            {tab==="refresh" && <Refresh cache={cache} onRefresh={()=>doRefresh()} loading={loading}/>}
-          </main>
-          <nav style={{height:54,flexShrink:0,borderTop:"1px solid rgba(90,78,66,0.13)",background:"#F4EFE6",display:"flex",alignItems:"stretch"}}>
-            {[{id:"feed",icon:"◎",label:"Feed"},{id:"saved",icon:"◇",label:"Saved",badge:saved.length},{id:"refresh",icon:"↻",label:"Refresh"}].map(t=>(
-              <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,border:"none",background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,cursor:"pointer",padding:0}}>
-                <span style={{fontSize:18,lineHeight:1,color:tab===t.id?"#B8832A":"#A09080"}}>
-                  {t.badge>0&&tab!==t.id?<span style={{background:"#B8832A",color:"#F4EFE6",borderRadius:"50%",width:18,height:18,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:10,fontFamily:"sans-serif",fontWeight:700}}>{t.badge}</span>:t.icon}
-                </span>
-                <span style={{fontSize:9.5,fontFamily:"sans-serif",letterSpacing:"0.06em",textTransform:"uppercase",color:tab===t.id?"#B8832A":"#A09080"}}>{t.label}</span>
-              </button>
-            ))}
-          </nav>
-          <div style={{height:20,flexShrink:0,background:"#F4EFE6"}}/>
-        </div>
-      );
-    }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-  </script>
+  // ---------- Boot ----------
+  loadAll(false);
+})();
+</script>
 </body>
 </html>
